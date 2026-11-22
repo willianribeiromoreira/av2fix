@@ -20,47 +20,36 @@ if (!$aberto['ok']) {
     exit;
 }
 $link = $aberto['link'];
-$host = strtolower((string) parse_url($link, PHP_URL_HOST));
-echo 'host=' . $host . "\n";
-
-$buscar = static function (string $link, array $headers) {
-    $ch = curl_init($link);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HEADER => true,
-        CURLOPT_FOLLOWLOCATION => false,
-        CURLOPT_TIMEOUT => 25,
-        CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        CURLOPT_HTTPHEADER => $headers,
-    ]);
-    $b = curl_exec($ch);
-    $e = curl_error($ch);
-    $st = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-    $hs = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-    curl_close($ch);
-    $body = is_string($b) ? substr($b, $hs) : '';
-    $texto = trim(preg_replace('/\s+/', ' ', strip_tags($body)));
-    $texto = preg_replace('#https?://\S+#', '[url]', $texto);
-    return [$st, $e, strlen($body), substr($texto, 0, 280)];
-};
-
-[$st, $e, $len, $texto] = $buscar($link, [
-    'Accept: text/html',
-    'Origin: https://supremapix.app',
-    'Referer: https://supremapix.app/',
+echo 'host=' . strtolower((string) parse_url($link, PHP_URL_HOST)) . "\n";
+$ch = curl_init($link);
+curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HEADER => false,
+    CURLOPT_FOLLOWLOCATION => false,
+    CURLOPT_TIMEOUT => 25,
+    CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+    CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    CURLOPT_HTTPHEADER => [
+        'Accept: text/html',
+        'Origin: https://supremapix.app',
+        'Referer: https://supremapix.app/',
+    ],
 ]);
-echo "simples status=$st err=$e len=$len\n$texto\n";
-
-[$st2, $e2, $len2, $texto2] = $buscar($link, [
-    'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language: pt-BR,pt;q=0.9',
-    'Origin: https://supremapix.app',
-    'Referer: https://supremapix.app/',
-    'Upgrade-Insecure-Requests: 1',
-    'Sec-Fetch-Dest: iframe',
-    'Sec-Fetch-Mode: navigate',
-    'Sec-Fetch-Site: cross-site',
-]);
-echo "navegador status=$st2 err=$e2 len=$len2\n$texto2\n";
+$body = curl_exec($ch);
+$e = curl_error($ch);
+$st = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+curl_close($ch);
+$body = is_string($body) ? $body : '';
+$limpo = preg_replace('#<(script|style)\b[^>]*>.*?</\1>#is', ' ', $body);
+$texto = trim(preg_replace('/\s+/', ' ', strip_tags((string) $limpo)));
+$texto = preg_replace('#https?://\S+#', '[url]', (string) $texto);
+echo "status=$st err=$e len=" . strlen($body) . "\n";
+foreach (['invalid', 'domain', 'referer', 'referrer', 'blocked', 'session', 'contact', 'manager'] as $p) {
+    $pos = stripos($texto, $p);
+    echo $p . '=' . ($pos === false ? '0' : '1') . "\n";
+    if ($pos !== false) {
+        echo 'trecho=' . substr($texto, max(0, $pos - 80), 220) . "\n";
+    }
+}
+echo "fim=" . substr($texto, -300) . "\n";
 @unlink(__FILE__);
